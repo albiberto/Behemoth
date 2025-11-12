@@ -1,0 +1,16 @@
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.0.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>8ee89476-057e-4d47-98a2-9458b597ae12</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Behemoth.Functions\Behemoth_Functions.csproj" />
+    <ProjectReference Include="..\Behemoth.Web\Behemoth.Web.csproj" />
+  </ItemGroup>
+
+</Project>

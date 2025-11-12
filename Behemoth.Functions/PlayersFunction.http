@@ -1,0 +1,16 @@
+### Get Players - GET request
+GET http://localhost:7047/api/PlayersFunction
+X-Functions-Key: {your-function-key}
+
+###
+
+### Get Players - POST request
+POST http://localhost:7071/api/PlayersFunction
+X-Functions-Key: {your-function-key}
+Content-Type: application/json
+
+{
+  "name": "Player1"
+}
+
+###

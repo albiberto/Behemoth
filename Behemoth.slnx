@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Behemoth.AppHost/Behemoth.AppHost.csproj" />
+  <Project Path="Behemoth.Functions/Behemoth_Functions.csproj" />
+  <Project Path="Behemoth.ServiceDefaults/Behemoth.ServiceDefaults.csproj" />
+  <Project Path="Behemoth.Web\Behemoth.Web.csproj" Type="Classic C#" />
+</Solution>
