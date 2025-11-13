@@ -9,11 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Behemoth.Functions\Behemoth_Functions.csproj" />
+    <ProjectReference Include="..\Behemoth.Functions\Behemoth.Functions.csproj" />
     <ProjectReference Include="..\Behemoth.Web\Behemoth.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.0.0" />
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="13.0.0" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.0" />
   </ItemGroup>

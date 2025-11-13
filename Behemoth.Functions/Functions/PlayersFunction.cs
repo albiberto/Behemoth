@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 
-namespace Behemoth_Functions
+namespace Behemoth.Functions
 {
     public class PlayersFunction(ILogger<PlayersFunction> logger)
     {
