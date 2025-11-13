@@ -3,17 +3,29 @@
 
 <AuthorizeView>
     <Authorized>
-        Hello, @context.User.Identity?.Name!
-        <button class="nav-link btn btn-link" @onclick="BeginLogOut">Log out</button>
+        <MudMenu Icon="@Icons.Material.Filled.Person" Color="Color.Inherit" Direction="Direction.Bottom" OffsetY="true">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" EndIcon="@Icons.Material.Filled.ArrowDropDown">
+                    Ciao, @(context.User.Identity?.Name ?? "Utente")
+                </MudButton>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle">Profilo</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="BeginLogOut">Log out</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
     </Authorized>
+    
     <NotAuthorized>
-        <a href="authentication/login">Log in</a>
+        <MudButton Href="authentication/login" 
+                   Variant="Variant.Text" 
+                   Color="Color.Inherit" 
+                   StartIcon="@Icons.Material.Filled.Login">
+            Log in
+        </MudButton>
     </NotAuthorized>
 </AuthorizeView>
 
-@code{
-    public void BeginLogOut()
-    {
-        Navigation.NavigateToLogout("authentication/logout");
-    }
+@code {
+    public void BeginLogOut() => Navigation.NavigateToLogout("authentication/logout");
 }
