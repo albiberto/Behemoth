@@ -10,17 +10,14 @@
                 </MudButton>
             </ActivatorContent>
             <ChildContent>
-                <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle">Profilo</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="BeginLogOut">Log out</MudMenuItem>
+                <MudMenuItem Href="/profile" Icon="@Icons.Material.Outlined.AccountCircle">Profilo</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Logout" OnClick="BeginLogOut">Log out</MudMenuItem>
             </ChildContent>
         </MudMenu>
     </Authorized>
     
     <NotAuthorized>
-        <MudButton Href="authentication/login" 
-                   Variant="Variant.Text" 
-                   Color="Color.Inherit" 
-                   StartIcon="@Icons.Material.Filled.Login">
+        <MudButton Href="authentication/login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">
             Log in
         </MudButton>
     </NotAuthorized>

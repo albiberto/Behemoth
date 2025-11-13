@@ -9,11 +9,13 @@
     <MudAppBar Elevation="1">
         
         <MudHidden Breakpoint="Breakpoint.MdAndUp">
-            <MudMenu Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                     AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+            <MudMenu Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
                 <MudMenuItem Href="" Icon="@Icons.Material.Filled.Home">Home</MudMenuItem>
-                <MudMenuItem Href="counter" Icon="@Icons.Material.Filled.Add">Counter</MudMenuItem>
-                <MudMenuItem Href="fetchdata" Icon="@Icons.Material.Filled.List">Fetch data</MudMenuItem>
+                <MudMenuItem Href="leaderboards" Icon="@Icons.Material.Filled.Add">Leaderboards</MudMenuItem>
+                <AuthorizeView>
+                    <MudMenuItem Href="leaderboards" Icon="@Icons.Material.Filled.Add">Create a Game</MudMenuItem>
+                    <MudMenuItem Href="leaderboards" Icon="@Icons.Material.Filled.Add">My Tanks</MudMenuItem>
+                </AuthorizeView>
             </MudMenu>
         </MudHidden>
 

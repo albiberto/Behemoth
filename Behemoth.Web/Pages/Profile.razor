@@ -1,0 +1,99 @@
+﻿@page "/profile"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using System.Text.Json.Serialization
+@inject IAccessTokenProvider TokenProvider
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Profilo Utente</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Profilo Utente</MudText>
+
+@if (user == null && !loadFailed)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (loadFailed)
+{
+    <MudAlert Severity="Severity.Error">Impossibile caricare i dati del profilo.</MudAlert>
+}
+else if (user != null)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudTextField @bind-Value="user.DisplayName" Label="Nome Visualizzato" Variant="Variant.Text" />
+            <MudText><strong>Email:</strong> @user.Mail</MudText>
+            <MudText><strong>User Principal Name:</strong> @user.UserPrincipalName</MudText>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateProfile">Salva Modifiche</MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    private GraphUser? user;
+    private bool loadFailed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await TrySetTokenAsync(["https://graph.microsoft.com/User.Read"])) return;
+
+        var response = await Http.GetAsync("https://graph.microsoft.com/v1.0/me");
+        if (response.IsSuccessStatusCode)
+        {
+            user = await response.Content.ReadFromJsonAsync<GraphUser>();
+        }
+        else
+        {
+            loadFailed = true;
+        }
+    }
+
+    private async Task UpdateProfile()
+    {
+        if (user == null) return;
+
+        if (!await TrySetTokenAsync(["https://graph.microsoft.com/User.ReadWrite"]))
+        {
+            Snackbar.Add("Autorizzazione per la scrittura non concessa.", Severity.Error);
+            return;
+        }
+
+        var updateData = new { displayName = user.DisplayName };
+        var response = await Http.PatchAsJsonAsync("https://graph.microsoft.com/v1.0/me", updateData);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Profilo aggiornato con successo!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Errore durante l'aggiornamento del profilo.", Severity.Error);
+        }
+    }
+
+    private async Task<bool> TrySetTokenAsync(string[] scopes)
+    {
+        var result = await TokenProvider.RequestAccessToken(new AccessTokenRequestOptions { Scopes = scopes });
+        if (result.TryGetToken(out var token))
+        {
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Value);
+            return true;
+        }
+        loadFailed = true;
+        return false;
+    }
+
+    public class GraphUser
+    {
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("mail")]
+        public string? Mail { get; set; }
+
+        [JsonPropertyName("userPrincipalName")]
+        public string? UserPrincipalName { get; set; }
+    }
+}

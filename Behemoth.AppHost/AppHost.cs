@@ -17,10 +17,9 @@ var functions = builder.AddProject<Projects.Behemoth_Functions>("functions")
 
 var web = builder.AddProject<Projects.Behemoth_Web>("web")
     .WithExternalHttpEndpoints()
-    .WithHttpHealthCheck("/health")
     .WithReference(cache)
-    .WaitFor(cache)
     .WithReference(functions)
+    .WaitFor(cache)
     .WaitFor(functions);
 
 builder.Build().Run();
