@@ -10,13 +10,11 @@ var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
 
-builder.AddServiceDefaults();
-
 builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();
 
-builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth");
-builder.Services.AddAzureClients(clientBuilder => clientBuilder.AddBlobServiceClient(builder.Configuration.GetConnectionString("blob")));
+builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth-db");
+builder.AddAzureBlobServiceClient("blobs");
 
 builder.Build().Run();

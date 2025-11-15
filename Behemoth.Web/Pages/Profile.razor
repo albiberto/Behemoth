@@ -1,99 +1,248 @@
 ﻿@page "/profile"
+
+@using System.Net.Http.Headers
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
-@using System.Text.Json.Serialization
-@inject IAccessTokenProvider TokenProvider
+
 @inject HttpClient Http
 @inject ISnackbar Snackbar
+@inject IAccessTokenProvider TokenProvider
 
 <PageTitle>Profilo Utente</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Profilo Utente</MudText>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Il Mio Profilo</MudText>
 
-@if (user == null && !loadFailed)
-{
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-}
-else if (loadFailed)
-{
-    <MudAlert Severity="Severity.Error">Impossibile caricare i dati del profilo.</MudAlert>
-}
-else if (user != null)
-{
-    <MudCard>
-        <MudCardContent>
-            <MudTextField @bind-Value="user.DisplayName" Label="Nome Visualizzato" Variant="Variant.Text" />
-            <MudText><strong>Email:</strong> @user.Mail</MudText>
-            <MudText><strong>User Principal Name:</strong> @user.UserPrincipalName</MudText>
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateProfile">Salva Modifiche</MudButton>
-        </MudCardActions>
-    </MudCard>
-}
+    @if (isLoading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (profile != null)
+    {
+        <MudCard>
+            <MudCardContent>
+                <MudStack Spacing="3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                        <MudAvatar Size="Size.Large" Style="width: 100px; height: 100px;">
+                            @if (!string.IsNullOrEmpty(profile.AvatarUrl))
+                            {
+                                <MudImage Src="@profile.AvatarUrl" Alt="Avatar" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
+                            }
+                        </MudAvatar>
+                        
+                        <MudFileUpload T="IBrowserFile" Accept="image/*" FilesChanged="OnAvatarSelected" MaximumFileCount="1">
+                            <ActivatorContent>
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Primary" 
+                                           StartIcon="@Icons.Material.Filled.CloudUpload"
+                                           Disabled="isUploadingAvatar">
+                                    @(isUploadingAvatar ? "Caricamento..." : "Cambia Avatar")
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    </MudStack>
+
+                    <MudTextField @bind-Value="profile.Username" 
+                                  Label="Nome Utente" 
+                                  Variant="Variant.Outlined"
+                                  Required="true" />
+                    
+                    <MudTextField @bind-Value="profile.Bio" 
+                                  Label="Biografia" 
+                                  Variant="Variant.Outlined"
+                                  Lines="4"
+                                  MaxLength="500" />
+                </MudStack>
+            </MudCardContent>
+            
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="SaveProfile"
+                           Disabled="isSaving">
+                    @(isSaving ? "Salvataggio..." : "Salva Modifiche")
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Error">Impossibile caricare il profilo.</MudAlert>
+    }
+</MudContainer>
 
 @code {
-    private GraphUser? user;
-    private bool loadFailed;
+    private ProfileDto? profile;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isUploadingAvatar = false;
+    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await TrySetTokenAsync(["https://graph.microsoft.com/User.Read"])) return;
+        await LoadProfile();
+    }
 
-        var response = await Http.GetAsync("https://graph.microsoft.com/v1.0/me");
-        if (response.IsSuccessStatusCode)
+    private async Task LoadProfile()
+    {
+        isLoading = true;
+        try
         {
-            user = await response.Content.ReadFromJsonAsync<GraphUser>();
+            if (!await SetAuthTokenAsync())
+            {
+                Snackbar.Add("Impossibile recuperare il token di autenticazione", Severity.Error);
+                return;
+            }
+
+            var response = await Http.GetAsync("api/profiles/me");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                profile = await response.Content.ReadFromJsonAsync<ProfileDto>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                profile = new ProfileDto { Username = "", Bio = "" };
+            }
+            else
+            {
+                Snackbar.Add("Errore nel caricamento del profilo", Severity.Error);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            loadFailed = true;
+            Console.WriteLine(ex);
+            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private async Task UpdateProfile()
+    private async Task OnAvatarSelected(IBrowserFile file)
     {
-        if (user == null) return;
+        if (file == null) return;
 
-        if (!await TrySetTokenAsync(["https://graph.microsoft.com/User.ReadWrite"]))
+        if (file.Size > MaxFileSize)
         {
-            Snackbar.Add("Autorizzazione per la scrittura non concessa.", Severity.Error);
+            Snackbar.Add("Il file è troppo grande. Dimensione massima: 5MB", Severity.Warning);
             return;
         }
 
-        var updateData = new { displayName = user.DisplayName };
-        var response = await Http.PatchAsJsonAsync("https://graph.microsoft.com/v1.0/me", updateData);
-
-        if (response.IsSuccessStatusCode)
+        if (!file.ContentType.StartsWith("image/"))
         {
-            Snackbar.Add("Profilo aggiornato con successo!", Severity.Success);
+            Snackbar.Add("Seleziona un'immagine valida", Severity.Warning);
+            return;
         }
-        else
+
+        isUploadingAvatar = true;
+        try
         {
-            Snackbar.Add("Errore durante l'aggiornamento del profilo.", Severity.Error);
+            if (!await SetAuthTokenAsync()) return;
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/profiles/image", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadImageResponse>();
+                if (profile != null && result != null)
+                {
+                    profile.AvatarUrl = result.Url;
+                }
+                Snackbar.Add("Avatar caricato con successo!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Errore nel caricamento dell'avatar", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUploadingAvatar = false;
         }
     }
 
-    private async Task<bool> TrySetTokenAsync(string[] scopes)
+    private async Task SaveProfile()
     {
-        var result = await TokenProvider.RequestAccessToken(new AccessTokenRequestOptions { Scopes = scopes });
-        if (result.TryGetToken(out var token))
+        if (profile == null || string.IsNullOrWhiteSpace(profile.Username))
         {
-            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Value);
+            Snackbar.Add("Il nome utente è obbligatorio", Severity.Warning);
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            if (!await SetAuthTokenAsync()) return;
+
+            var request = new UpdateProfileRequest
+            {
+                Username = profile.Username,
+                Bio = profile.Bio
+            };
+
+            var response = await Http.PostAsJsonAsync("api/profiles", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Profilo salvato con successo!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Errore nel salvataggio del profilo", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task<bool> SetAuthTokenAsync()
+    {
+        var tokenResult = await TokenProvider.RequestAccessToken();
+        if (tokenResult.TryGetToken(out var token))
+        {
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
             return true;
         }
-        loadFailed = true;
         return false;
     }
 
-    public class GraphUser
+    public class ProfileDto
     {
-        [JsonPropertyName("displayName")]
-        public string? DisplayName { get; set; }
+        public string? Id { get; set; }
+        public string Username { get; set; } = "";
+        public string? Bio { get; set; }
+        public string? AvatarUrl { get; set; }
+    }
 
-        [JsonPropertyName("mail")]
-        public string? Mail { get; set; }
+    public class UpdateProfileRequest
+    {
+        public string Username { get; set; } = "";
+        public string? Bio { get; set; }
+    }
 
-        [JsonPropertyName("userPrincipalName")]
-        public string? UserPrincipalName { get; set; }
+    public class UploadImageResponse
+    {
+        public string Url { get; set; } = "";
     }
 }

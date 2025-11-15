@@ -24,12 +24,16 @@ var web = builder.AddProject<Projects.Behemoth_Web>("web")
 builder.Build().Run();
 return;
 
-IResourceBuilder<AzureBlobStorageContainerResource> AbbBlobStorage(string name)
+IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage(string name)
 {
     var storage = builder.AddAzureStorage(name);
-    if (!builder.ExecutionContext.IsPublishMode) storage.RunAsEmulator();
+    if (!builder.ExecutionContext.IsPublishMode) storage.RunAsEmulator(azurite =>
+    {
+        azurite.WithLifetime(ContainerLifetime.Persistent);
+        azurite.WithDataVolume();
+    });
     
-    return storage.AddBlobContainer("behemoth");
+    return storage.AddBlobs("blobs");
 }
 
 IResourceBuilder<AzureCosmosDBResource> AddCosmos(string name)
@@ -37,7 +41,7 @@ IResourceBuilder<AzureCosmosDBResource> AddCosmos(string name)
     var resourceBuilder = builder.AddAzureCosmosDB(name);
     if (!builder.ExecutionContext.IsPublishMode) resourceBuilder.RunAsEmulator();
 
-    var database = resourceBuilder.AddCosmosDatabase("behemoth");
+    var database = resourceBuilder.AddCosmosDatabase("behemoth-db");
     database.AddContainer("Players", "/id");
     database.AddContainer("Replays", "/id");
     
