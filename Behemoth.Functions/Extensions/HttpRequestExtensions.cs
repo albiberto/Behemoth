@@ -1,37 +1,38 @@
 ﻿using System.Security.Claims;
-    using Microsoft.Azure.Functions.Worker;
-    using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.Functions.Worker;
+
+namespace Behemoth.Functions.Extensions;
+
+public static class HttpRequestExtensions
+{
+    private const string ClaimsPrincipalKey = "User";
     
-    namespace Behemoth.Functions.Extensions;
-    
-    public static class HttpRequestExtensions
+    private static ClaimsPrincipal? GetClaimsPrincipal(this FunctionContext context) =>
+        context.Items.TryGetValue(ClaimsPrincipalKey, out var value) && value is ClaimsPrincipal principal
+            ? principal
+            : null;
+
+    public static Guid GetUserId(this HttpRequestData req)
     {
-        public static string GetUserEmail(this HttpRequestData req)
-        {
-            var principal = req.FunctionContext.GetClaimsPrincipal();
-            return principal?.FindFirst(ClaimTypes.Email)?.Value
-                        ?? principal?.FindFirst("preferred_username")?.Value
-                        ?? throw new InvalidOperationException("Cannot determine user email from claims.");
-        }
-    
-        public static Guid GetUserId(this HttpRequestData req)
-        {
-            var principal = req.FunctionContext.GetClaimsPrincipal();
-            var sub = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                        ?? principal?.FindFirst("sub")?.Value
-                        ?? principal?.FindFirst("oid")?.Value
-                        ?? throw new InvalidOperationException("Cannot determine user ID from claims.");
-            
-            return Guid.Parse(sub);
-        }
-    
-        private static ClaimsPrincipal? GetClaimsPrincipal(this FunctionContext context)
-        {
-            const string ClaimsPrincipalKey = "User";
-    
-            if (context.Items.TryGetValue(ClaimsPrincipalKey, out var value) && value is ClaimsPrincipal principal)
-                return principal;
-    
-            return null;
-        }
+        var principal = req.FunctionContext.GetClaimsPrincipal();
+
+        var sub = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? principal?.FindFirst("sub")?.Value
+                  ?? principal?.FindFirst("oid")?.Value
+                  ?? throw new InvalidOperationException("Cannot determine user ID. ClaimsPrincipal was null or did not contain 'sub'/'oid' claims.");
+
+        return Guid.Parse(sub);
     }
+    
+    public static string GetUserEmail(this HttpRequestData req)
+    {
+        var principal = req.FunctionContext.GetClaimsPrincipal();
+
+        var email = principal?.FindFirst(ClaimTypes.Email)?.Value 
+                 ?? principal?.FindFirst("preferred_username")?.Value
+                 ?? throw new InvalidOperationException("Cannot determine user email. ClaimsPrincipal was null or did not contain 'email'/'preferred_username' claims.");
+        
+        return email;
+    }
+}

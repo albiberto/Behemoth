@@ -1,17 +1,19 @@
-﻿### Get My Profile - GET request (Local Testing)
-# Simula Easy Auth in locale usando gli header X-MS-CLIENT-PRINCIPAL-*
-# X-MS-CLIENT-PRINCIPAL-ID = sub/oid claim (GUID dell'utente)
-# X-MS-CLIENT-PRINCIPAL-NAME = email/preferred_username claim
-GET http://localhost:7047/api/profiles/me
-X-MS-CLIENT-PRINCIPAL-ID: 12345678-1234-1234-1234-123456789012
-X-MS-CLIENT-PRINCIPAL-NAME: test@example.com
+﻿@hostname = http://localhost:7047
+
+# Token JWT finto e hardcodato, generato da jwt.io
+# Questo token contiene i claim finti (sub, email, ecc.)
+@localToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwYmVlNTRiOC01NjY5LTQ1ZDQtOGE2Yy0yMzg1NWYyNWI4OTEiLCJuYW1lIjoiSm9obiBEb2UiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJqb2huLmRvZUBkZWFkLnV3IiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.pnL8qXbbiTQoUsL2nlr-w497UD__xvi0-8XxDPVjGLM
+
+###
+### Get My Profile - STANDARD JWT
+GET {{hostname}}/api/profiles/me
+Authorization: Bearer {{localToken}}
 
 ###
 
 ### Create or Update Profile - POST request (Local Testing)
-POST http://localhost:7071/api/profiles
-X-MS-CLIENT-PRINCIPAL-ID: 12345678-1234-1234-1234-123456789012
-X-MS-CLIENT-PRINCIPAL-NAME: test@example.com
+POST {{hostname}}/api/profiles
+Authorization: Bearer {{localToken}}
 Content-Type: application/json
 
 {
@@ -20,36 +22,3 @@ Content-Type: application/json
 }
 
 ###
-
-### Upload Profile Image - POST request (Local Testing)
-POST http://localhost:7071/api/profiles/image
-X-MS-CLIENT-PRINCIPAL-ID: 12345678-1234-1234-1234-123456789012
-X-MS-CLIENT-PRINCIPAL-NAME: test@example.com
-Content-Type: image/jpeg
-
-< C:/Users/viezzi/Pictures/avatar.jpg
-
-###
-
-### Get My Profile - GET request (Production with Easy Auth)
-# In produzione, invia il token JWT nell'header Authorization
-# Easy Auth lo valida e popola automaticamente gli header X-MS-CLIENT-PRINCIPAL-*
-GET https://your-function-app.azurewebsites.net/api/profiles/me
-Authorization: Bearer {actual-jwt-token}
-
-###
-
-### Create or Update Profile - POST request (Production with Easy Auth)
-POST https://your-function-app.azurewebsites.net/api/profiles
-Authorization: Bearer {actual-jwt-token}
-Content-Type: application/json
-
-{
-  "username": "TestUser",
-  "bio": "Questa è la mia biografia di test"
-}
-
-###
-
-
-
