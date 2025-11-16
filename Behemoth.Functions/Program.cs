@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Azure.Core.Serialization;
 using Behemoth.Functions.Middlewares;
 using Behemoth.Infrastructure;
 using Microsoft.Azure.Functions.Worker;
@@ -14,6 +16,15 @@ if(builder.Environment.IsDevelopment()) builder.UseMiddleware<LocalAuthSimulator
 builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();
+
+builder.Services.Configure<WorkerOptions>(options =>
+{
+    options.Serializer = new JsonObjectSerializer(new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    });
+});
 
 builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth-db");
 builder.AddAzureBlobServiceClient("blobs");

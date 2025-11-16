@@ -1,6 +1,7 @@
 ﻿@page "/profile"
 
 @using System.Net.Http.Headers
+@using Behemoth.Contracts
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 
 @inject HttpClient Http
@@ -77,26 +78,16 @@
 @code {
     private ProfileDto? profile;
     private bool isLoading = true;
-    private bool isSaving = false;
-    private bool isUploadingAvatar = false;
-    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
+    private bool isSaving;
+    private bool isUploadingAvatar;
+    private const long MaxFileSize = 5 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadProfile();
-    }
-
-    private async Task LoadProfile()
-    {
         isLoading = true;
+        
         try
         {
-            if (!await SetAuthTokenAsync())
-            {
-                Snackbar.Add("Impossibile recuperare il token di autenticazione", Severity.Error);
-                return;
-            }
-
             var response = await Http.GetAsync("api/profiles/me");
             
             if (response.IsSuccessStatusCode)
@@ -105,7 +96,7 @@
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                profile = new ProfileDto { Username = "", Bio = "" };
+                profile = new ProfileDto { Username = string.Empty, Bio = string.Empty };
             }
             else
             {
@@ -125,8 +116,6 @@
 
     private async Task OnAvatarSelected(IBrowserFile file)
     {
-        if (file == null) return;
-
         if (file.Size > MaxFileSize)
         {
             Snackbar.Add("Il file è troppo grande. Dimensione massima: 5MB", Severity.Warning);
@@ -142,8 +131,6 @@
         isUploadingAvatar = true;
         try
         {
-            if (!await SetAuthTokenAsync()) return;
-
             using var content = new MultipartFormDataContent();
             var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
@@ -155,7 +142,8 @@
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<UploadImageResponse>();
-                if (profile != null && result != null)
+                
+                if (profile is not null && result is not null)
                 {
                     profile.AvatarUrl = result.Url;
                 }
@@ -178,7 +166,7 @@
 
     private async Task SaveProfile()
     {
-        if (profile == null || string.IsNullOrWhiteSpace(profile.Username))
+        if (profile is null || string.IsNullOrWhiteSpace(profile.Username))
         {
             Snackbar.Add("Il nome utente è obbligatorio", Severity.Warning);
             return;
@@ -187,13 +175,10 @@
         isSaving = true;
         try
         {
-            if (!await SetAuthTokenAsync()) return;
-
-            var request = new UpdateProfileRequest
-            {
-                Username = profile.Username,
-                Bio = profile.Bio
-            };
+            var request = new UpdateProfileRequest(
+                Username: profile.Username,
+                Bio: profile.Bio
+            );
 
             var response = await Http.PostAsJsonAsync("api/profiles", request);
 
@@ -214,35 +199,5 @@
         {
             isSaving = false;
         }
-    }
-
-    private async Task<bool> SetAuthTokenAsync()
-    {
-        var tokenResult = await TokenProvider.RequestAccessToken();
-        if (tokenResult.TryGetToken(out var token))
-        {
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            return true;
-        }
-        return false;
-    }
-
-    public class ProfileDto
-    {
-        public string? Id { get; set; }
-        public string Username { get; set; } = "";
-        public string? Bio { get; set; }
-        public string? AvatarUrl { get; set; }
-    }
-
-    public class UpdateProfileRequest
-    {
-        public string Username { get; set; } = "";
-        public string? Bio { get; set; }
-    }
-
-    public class UploadImageResponse
-    {
-        public string Url { get; set; } = "";
     }
 }

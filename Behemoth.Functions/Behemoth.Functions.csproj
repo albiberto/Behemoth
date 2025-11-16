@@ -25,6 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Behemoth.Contracts\Behemoth.Contracts.csproj" />
       <ProjectReference Include="..\Behemoth.Infrastructure\Behemoth.Infrastructure.csproj" />
     </ItemGroup>
 
