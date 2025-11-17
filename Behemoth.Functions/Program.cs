@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Azure.Core.Serialization;
+using Behemoth.Contracts.Validators;
 using Behemoth.Functions.Middlewares;
 using Behemoth.Infrastructure;
+using FluentValidation;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +27,8 @@ builder.Services.Configure<WorkerOptions>(options =>
         PropertyNameCaseInsensitive = true
     });
 });
+
+builder.Services.AddValidatorsFromAssemblyContaining<UpdateProfileRequestValidator>();
 
 builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth-db");
 builder.AddAzureBlobServiceClient("blobs");

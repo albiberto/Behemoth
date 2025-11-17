@@ -9,22 +9,7 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddHttpClient("WebAPI", client =>
-    {
-        client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
-    })
-    .AddHttpMessageHandler<AuthTokenHandler>();
-
-builder.Services.AddOptions<JsonSerializerOptions>()
-    .Configure(options =>
-    {
-        options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.PropertyNameCaseInsensitive = true;
-    });
-
-
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("WebAPI"));
-
+AddHttpClient(builder);
 
 builder.Services.AddMsalAuthentication(options =>
 {
@@ -37,3 +22,22 @@ builder.Services.AddScoped<AuthTokenHandler>();
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();
+return;
+
+void AddHttpClient(WebAssemblyHostBuilder webAssemblyHostBuilder)
+{
+    var backendUrl = Environment.GetEnvironmentVariable("BACKEND_URL")
+                     ?? builder.Configuration["BackendUrl"]
+                     ?? throw new InvalidOperationException("BackendUrl non configurato");
+
+    webAssemblyHostBuilder.Services
+        .AddHttpClient<BehemothHttpClient>(client => client.BaseAddress = new(backendUrl))
+        .AddHttpMessageHandler<AuthTokenHandler>();
+
+    webAssemblyHostBuilder.Services.AddOptions<JsonSerializerOptions>()
+        .Configure(options =>
+        {
+            options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.PropertyNameCaseInsensitive = true;
+        });
+}
