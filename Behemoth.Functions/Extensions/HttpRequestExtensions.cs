@@ -13,16 +13,14 @@ public static class HttpRequestExtensions
             ? principal
             : null;
 
-    public static Guid GetUserId(this HttpRequestData req)
+    public static string GetUserId(this HttpRequestData req)
     {
         var principal = req.FunctionContext.GetClaimsPrincipal();
 
-        var sub = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        return principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                   ?? principal?.FindFirst("sub")?.Value
                   ?? principal?.FindFirst("oid")?.Value
                   ?? throw new InvalidOperationException("Cannot determine user ID. ClaimsPrincipal was null or did not contain 'sub'/'oid' claims.");
-
-        return Guid.Parse(sub);
     }
     
     public static string GetUserEmail(this HttpRequestData req)

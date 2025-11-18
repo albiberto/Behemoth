@@ -20,14 +20,25 @@ public class LocalAuthSimulatorMiddleware : IFunctionsWorkerMiddleware
                 {
                     var handler = new JwtSecurityTokenHandler();
                     var jwtToken = handler.ReadJwtToken(tokenString);
-                    var identity = new ClaimsIdentity(jwtToken.Claims, "jwt-local-test");
+                    
+                    var claims = jwtToken.Claims.ToList();
+                    
+                    var scopeClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "scope");
+
+                    if (scopeClaim != null)
+                    {
+                        var scopes = scopeClaim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        claims.AddRange(scopes.Select(scope => new Claim("scp", scope)));
+                    }
+                    
+                    var identity = new ClaimsIdentity(claims, "jwt-local-test");
                     var principal = new ClaimsPrincipal(identity);
 
                     context.Items.TryAdd("User", principal);
                 }
                 catch
                 {
-                    throw new InvalidOperationException("Failed to parse JWT token in local auth simulator middleware.");
+                    throw new InvalidOperationException("Failed to parse or process JWT token in local auth simulator middleware. Check if token is valid.");
                 }
         }
 

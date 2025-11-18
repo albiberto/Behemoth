@@ -7,45 +7,103 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Behemoth.Contracts;
 using FluentValidation;
-using UpdateProfileRequest = Behemoth.Contracts.UpdateProfileRequest;
+// Assicurati che il tuo UpdateProfileRequest sia in Behemoth.Contracts
+using UpdateProfileRequest = Behemoth.Contracts.UpdateProfileRequest; 
 
 namespace Behemoth.Functions.Functions;
 
 public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> logger)
 {
-    [Function("CreateOrUpdateMyProfile")]
-    public async Task<HttpResponseData> CreateOrUpdateMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")] HttpRequestData req)
+    /// <summary>
+    /// FUNZIONE 1: Ottiene il profilo dell'utente corrente.
+    /// Se il profilo non esiste, ne crea uno nuovo e vuoto.
+    /// </summary>
+    [Function("GetMyProfile")]
+    public async Task<HttpResponseData> GetMyProfile(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")] HttpRequestData req)
     {
-        logger.LogInformation("Request to create or update a profile.");
+        logger.LogInformation("Request to get 'me' profile.");
+
+        try
+        {
+            var userId = req.GetUserId();
+
+            var existingProfile = await context.Profiles.FindAsync(userId);
+            Profile profileToReturn;
+
+            if (existingProfile is null)
+            {
+                logger.LogInformation("Profile not found for {UserId}. Creating a new empty profile.", userId);
+                
+                profileToReturn = new Profile(userId);
+                
+                await context.Profiles.AddAsync(profileToReturn);
+                await context.SaveChangesAsync();
+            }
+            else
+            {
+                logger.LogInformation("Profile found for {UserId}.", userId);
+                profileToReturn = existingProfile;
+            }
+
+            var response = req.CreateResponse(HttpStatusCode.OK);
+            var profileDto = new ProfileDto
+            {
+                Id = profileToReturn.Id,
+                Username = profileToReturn.Username,
+                Bio = profileToReturn.Bio,
+                AvatarUrl = profileToReturn.AvatarUrl
+            };
+            await response.WriteAsJsonAsync(profileDto);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting profile for user.");
+            return req.CreateResponse(HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// FUNZIONE 2: Aggiorna il profilo dell'utente corrente (Username e Bio).
+    /// Questa funzione è solo un UPDATE (PUT).
+    /// </summary>
+    [Function("UpdateMyProfile")]
+    public async Task<HttpResponseData> UpdateMyProfile(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")] HttpRequestData req)
+    {
+        logger.LogInformation("Request to update 'me' profile.");
 
         try
         {
             var userId = req.GetUserId();
 
             var request = await req.ReadFromJsonAsync<UpdateProfileRequest>();
-            if (request is null) return req.CreateResponse(HttpStatusCode.BadRequest);
+            if (request is null)
+            {
+                logger.LogWarning("Update profile request body was null or invalid.");
+                return req.CreateResponse(HttpStatusCode.BadRequest);
+            }
 
             var existingProfile = await context.Profiles.FindAsync(userId);
-            Profile updatedProfile;
 
             if (existingProfile is null)
             {
-                logger.LogInformation("Creating new profile for user {UserId}", userId);
-                
-                updatedProfile = new Profile(userId, request.Username, request.Bio, null);
-                await context.Profiles.AddAsync(updatedProfile);
+                // Non dovrebbe succedere se il GET viene chiamato prima, 
+                // ma è una buona protezione.
+                logger.LogWarning("User {UserId} tried to update a profile that does not exist.", userId);
+                return req.CreateResponse(HttpStatusCode.NotFound);
             }
-            else
+            
+            logger.LogInformation("Updating profile for user {UserId}", userId);
+            
+            // Applica l'aggiornamento
+            var updatedProfile = existingProfile with
             {
-                logger.LogInformation("Updating profile for user {UserId}", userId);
-                
-                updatedProfile = existingProfile with
-                {
-                    Username = request.Username,
-                    Bio = request.Bio
-                };
-                context.Profiles.Update(updatedProfile);
-            }
+                Username = request.Username,
+                Bio = request.Bio
+            };
+            context.Profiles.Update(updatedProfile);
 
             await context.SaveChangesAsync();
 
@@ -62,7 +120,7 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error creating/updating profile.");
+            logger.LogError(ex, "Error updating profile for user.");
             return req.CreateResponse(HttpStatusCode.InternalServerError);
         }
     }

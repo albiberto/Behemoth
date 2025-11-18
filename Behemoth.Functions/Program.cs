@@ -33,4 +33,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<UpdateProfileRequestValidat
 builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth-db");
 builder.AddAzureBlobServiceClient("blobs");
 
-builder.Build().Run();
+var app = builder.Build();
+   
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<BehemothContext>();
+    await context.Database.EnsureCreatedAsync(); 
+}
+    
+app.Run();
