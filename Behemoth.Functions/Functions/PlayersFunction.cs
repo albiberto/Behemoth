@@ -3,16 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 
-namespace Behemoth.Functions
+namespace Behemoth.Functions;
+
+public class PlayersFunction(ILogger<PlayersFunction> logger)
 {
-    public class PlayersFunction(ILogger<PlayersFunction> logger)
+    [Function("PlayersFunction")]
+    public IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
     {
-        [Function("PlayersFunction")]
-        public IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
-        {
-            logger.LogInformation("C# HTTP trigger function processed a request.");
-            
-            return new OkObjectResult("Welcome to Azure Functions!");
-        }
+        logger.LogInformation("C# HTTP trigger function processed a request.");
+
+        return new OkObjectResult("Welcome to Azure Functions!");
     }
 }

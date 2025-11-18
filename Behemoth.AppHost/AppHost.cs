@@ -6,7 +6,7 @@ var blob = AbbBlobStorage("storage");
 var cosmos = AddCosmos("cosmos");
 var cache = builder.AddRedis("cache");
 
-var functions = builder.AddProject<Projects.Behemoth_Functions>("functions")    
+var functions = builder.AddProject<Projects.Behemoth_Functions>("functions")
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithReference(cache)
@@ -27,12 +27,13 @@ return;
 IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage(string name)
 {
     var storage = builder.AddAzureStorage(name);
-    if (!builder.ExecutionContext.IsPublishMode) storage.RunAsEmulator(azurite =>
-    {
-        azurite.WithLifetime(ContainerLifetime.Persistent);
-        azurite.WithDataVolume();
-    });
-    
+    if (!builder.ExecutionContext.IsPublishMode)
+        storage.RunAsEmulator(azurite =>
+        {
+            azurite.WithLifetime(ContainerLifetime.Persistent);
+            azurite.WithDataVolume();
+        });
+
     return storage.AddBlobs("blobs");
 }
 
@@ -44,6 +45,6 @@ IResourceBuilder<AzureCosmosDBResource> AddCosmos(string name)
     var database = resourceBuilder.AddCosmosDatabase("behemoth-db");
     database.AddContainer("Players", "/id");
     database.AddContainer("Replays", "/id");
-    
+
     return resourceBuilder;
 }

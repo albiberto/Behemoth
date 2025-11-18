@@ -110,11 +110,13 @@
             Snackbar.Add("Il file è troppo grande. Dimensione massima: 5MB", Severity.Warning);
             return;
         }
+
         if (!file.ContentType.StartsWith("image/"))
         {
             Snackbar.Add("Seleziona un'immagine valida", Severity.Warning);
             return;
         }
+
         isUploadingAvatar = true;
         try
         {
@@ -146,6 +148,7 @@
             Snackbar.Add("Il nome utente è obbligatorio", Severity.Warning);
             return;
         }
+
         isSaving = true;
         try
         {

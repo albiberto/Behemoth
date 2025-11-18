@@ -11,7 +11,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddMsalAuthentication(options =>
 {
     builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
-    
+
     var scopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>();
     foreach (var scope in scopes ?? []) options.ProviderOptions.DefaultAccessTokenScopes.Add(scope);
 });

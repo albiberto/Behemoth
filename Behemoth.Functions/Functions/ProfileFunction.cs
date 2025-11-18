@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Behemoth.Contracts;
 using FluentValidation;
 // Assicurati che il tuo UpdateProfileRequest sia in Behemoth.Contracts
-using UpdateProfileRequest = Behemoth.Contracts.UpdateProfileRequest; 
+using UpdateProfileRequest = Behemoth.Contracts.UpdateProfileRequest;
 
 namespace Behemoth.Functions.Functions;
 
@@ -20,7 +20,8 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
     /// </summary>
     [Function("GetMyProfile")]
     public async Task<HttpResponseData> GetMyProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")]
+        HttpRequestData req)
     {
         logger.LogInformation("Request to get 'me' profile.");
 
@@ -34,9 +35,9 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
             if (existingProfile is null)
             {
                 logger.LogInformation("Profile not found for {UserId}. Creating a new empty profile.", userId);
-                
+
                 profileToReturn = new Profile(userId);
-                
+
                 await context.Profiles.AddAsync(profileToReturn);
                 await context.SaveChangesAsync();
             }
@@ -70,7 +71,8 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
     /// </summary>
     [Function("UpdateMyProfile")]
     public async Task<HttpResponseData> UpdateMyProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")]
+        HttpRequestData req)
     {
         logger.LogInformation("Request to update 'me' profile.");
 
@@ -94,9 +96,9 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
                 logger.LogWarning("User {UserId} tried to update a profile that does not exist.", userId);
                 return req.CreateResponse(HttpStatusCode.NotFound);
             }
-            
+
             logger.LogInformation("Updating profile for user {UserId}", userId);
-            
+
             // Applica l'aggiornamento
             var updatedProfile = existingProfile with
             {

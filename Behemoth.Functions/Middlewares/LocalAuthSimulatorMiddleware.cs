@@ -20,9 +20,9 @@ public class LocalAuthSimulatorMiddleware : IFunctionsWorkerMiddleware
                 {
                     var handler = new JwtSecurityTokenHandler();
                     var jwtToken = handler.ReadJwtToken(tokenString);
-                    
+
                     var claims = jwtToken.Claims.ToList();
-                    
+
                     var scopeClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "scope");
 
                     if (scopeClaim != null)
@@ -30,7 +30,7 @@ public class LocalAuthSimulatorMiddleware : IFunctionsWorkerMiddleware
                         var scopes = scopeClaim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                         claims.AddRange(scopes.Select(scope => new Claim("scp", scope)));
                     }
-                    
+
                     var identity = new ClaimsIdentity(claims, "jwt-local-test");
                     var principal = new ClaimsPrincipal(identity);
 

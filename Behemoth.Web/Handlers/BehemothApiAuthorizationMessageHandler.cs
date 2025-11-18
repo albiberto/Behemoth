@@ -11,8 +11,8 @@ public class BehemothApiAuthorizationMessageHandler : AuthorizationMessageHandle
         var scopes = config.GetSection("ApiScopes").Get<string[]>();
 
         ConfigureHandler(
-            authorizedUrls: [serviceUrl]!, // A quali URL inviare il token?
-            scopes: scopes // Quali scope chiedere per questi URL?
+            [serviceUrl]!, // A quali URL inviare il token?
+            scopes // Quali scope chiedere per questi URL?
         );
     }
 }

@@ -13,7 +13,7 @@ var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
 
-if(builder.Environment.IsDevelopment()) builder.UseMiddleware<LocalAuthSimulatorMiddleware>();
+if (builder.Environment.IsDevelopment()) builder.UseMiddleware<LocalAuthSimulatorMiddleware>();
 
 builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
@@ -34,11 +34,11 @@ builder.AddCosmosDbContext<BehemothContext>("cosmos", "behemoth-db");
 builder.AddAzureBlobServiceClient("blobs");
 
 var app = builder.Build();
-   
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<BehemothContext>();
-    await context.Database.EnsureCreatedAsync(); 
+    await context.Database.EnsureCreatedAsync();
 }
-    
+
 app.Run();

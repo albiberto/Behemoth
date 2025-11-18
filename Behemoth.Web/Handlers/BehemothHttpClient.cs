@@ -26,21 +26,21 @@ public class BehemothHttpClient(HttpClient http)
         {
             Headers =
             {
-                ContentType = new MediaTypeHeaderValue(file.ContentType),
+                ContentType = new MediaTypeHeaderValue(file.ContentType)
             }
         };
         content.Add(fileContent, "file", file.Name);
-        
+
         var response = await http.PostAsync("api/profiles/image", content);
-        return response.IsSuccessStatusCode 
-            ? await response.Content.ReadFromJsonAsync<UploadImageResponse>() 
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<UploadImageResponse>()
             : null;
     }
 
     public async Task<bool> SaveProfileAsync(UpdateProfileRequest request)
     {
         var response = await http.PostAsJsonAsync("api/profiles", request);
-        
+
         return response.IsSuccessStatusCode;
     }
 }

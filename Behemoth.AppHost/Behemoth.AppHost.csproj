@@ -1,22 +1,22 @@
 ﻿<Project Sdk="Aspire.AppHost.Sdk/13.0.0">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <UserSecretsId>8ee89476-057e-4d47-98a2-9458b597ae12</UserSecretsId>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <UserSecretsId>8ee89476-057e-4d47-98a2-9458b597ae12</UserSecretsId>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Behemoth.Functions\Behemoth.Functions.csproj" />
-    <ProjectReference Include="..\Behemoth.Web\Behemoth.Web.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Behemoth.Functions\Behemoth.Functions.csproj"/>
+        <ProjectReference Include="..\Behemoth.Web\Behemoth.Web.csproj"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.0.0" />
-    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="13.0.0" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.0.0"/>
+        <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="13.0.0"/>
+        <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.0"/>
+    </ItemGroup>
 
 </Project>
