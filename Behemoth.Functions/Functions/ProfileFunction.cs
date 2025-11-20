@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Behemoth.Domain;
 using Behemoth.Infrastructure;
 using Behemoth.Functions.Extensions;
@@ -17,10 +18,10 @@ using Microsoft.Extensions.Options;
 namespace Behemoth.Functions.Functions;
 
 public class ProfileFunction(
-    BehemothContext context, 
-    IDistributedCache cache, 
-    IValidator<Contract.Profile.Anagraphy> validator, 
-    IOptions<CacheOptions> options, 
+    BehemothContext context,
+    IDistributedCache cache,
+    IValidator<Contract.Profile.Anagraphy> validator,
+    IOptions<CacheOptions> options,
     BlobServiceClient blobs,
     ILogger<ProfileFunction> logger)
 {
@@ -144,7 +145,7 @@ public class ProfileFunction(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating profile for user {UserId}.", id);
-            
+
             return req.CreateResponse(HttpStatusCode.InternalServerError);
         }
     }
@@ -152,35 +153,50 @@ public class ProfileFunction(
     [Function("UploadProfileImage")]
     public async Task<HttpResponseData> UploadProfileImage([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")] HttpRequestData req)
     {
-        logger.LogInformation("C# HTTP trigger function processed a request to upload a profile image.");
-    
+        const string ContainerName = "behemoth-container";
+
+        var userId = req.GetUserId();
+        logger.LogInformation("Starting image upload for user {UserId}", userId);
+
         try
         {
-            var userId = req.GetUserId();
-    
-            var file = req.Body;
-    
-            var blobName = $"{userId}-{DateTimeOffset.UtcNow.Ticks}";
-            var blobClient = blobs.GetBlobClient(blobName);
-    
-            await blobClient.UploadAsync(file, true);
+            var containerClient = blobs.GetBlobContainerClient(ContainerName);
+            await containerClient.CreateIfNotExistsAsync();
+
+            var fileName = $"{userId}-{DateTimeOffset.UtcNow.Ticks}.jpg";
+            var blobClient = containerClient.GetBlobClient(fileName);
+
+            var uploadOptions = new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = "image/jpeg",
+                    CacheControl = "public, max-age=31536000, immutable" // Cache browser 1 anno
+                }
+            };
+
+            await blobClient.UploadAsync(req.Body, uploadOptions);
+
             var newAvatarUrl = blobClient.Uri.ToString();
-    
+            logger.LogInformation("Image uploaded to {Url}", newAvatarUrl);
+
             var existingProfile = await context.Profiles.FindAsync(userId);
             if (existingProfile is null) return req.CreateResponse(HttpStatusCode.NotFound);
-    
-            // Poiché Profile è immutabile, creiamo una nuova istanza con l'URL aggiornato
-            var updatedProfile = existingProfile with { AvatarUrl = newAvatarUrl };
-            context.Profiles.Update(updatedProfile);
+
+            existingProfile.UpdateAvatar(newAvatarUrl);
             await context.SaveChangesAsync();
-    
+
+            var cacheKey = CacheOptions.ProfileKey(userId);
+            await cache.RemoveAsync(cacheKey);
+
             var response = req.CreateResponse(HttpStatusCode.OK);
-            await response.WriteAsJsonAsync(new Contract.Profile.Avatar(newAvatarUrl));
+            await response.WriteAsJsonAsync(new { AvatarUrl = newAvatarUrl });
+
             return response;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error uploading profile image.");
+            logger.LogError(ex, "Error uploading profile image for user {UserId}.", userId);
             return req.CreateResponse(HttpStatusCode.InternalServerError);
         }
     }
