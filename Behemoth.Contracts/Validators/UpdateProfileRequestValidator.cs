@@ -2,7 +2,7 @@
 
 namespace Behemoth.Contracts.Validators;
 
-public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequest>
+public class UpdateProfileRequestValidator : AbstractValidator<Contract.Profile.Anagraphy>
 {
     public UpdateProfileRequestValidator()
     {

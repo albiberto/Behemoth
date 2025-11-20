@@ -15,16 +15,16 @@
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true"/>
     }
-    else if (profile != null)
+    else if (model != null)
     {
         <MudCard>
             <MudCardContent>
                 <MudStack Spacing="3">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
                         <MudAvatar Size="Size.Large" Style="width: 100px; height: 100px;">
-                            @if (!string.IsNullOrEmpty(profile.AvatarUrl))
+                            @if (!string.IsNullOrEmpty(model.AvatarUrl))
                             {
-                                <MudImage Src="@profile.AvatarUrl" Alt="Avatar"/>
+                                <MudImage Src="@model.AvatarUrl" Alt="Avatar"/>
                             }
                             else
                             {
@@ -45,12 +45,12 @@
                         </MudFileUpload>
                     </MudStack>
 
-                    <MudTextField @bind-Value="profile.Username"
+                    <MudTextField @bind-Value="model.Username"
                                   Label="Nome Utente"
                                   Variant="Variant.Outlined"
                                   Required="true"/>
 
-                    <MudTextField @bind-Value="profile.Bio"
+                    <MudTextField @bind-Value="model.Bio"
                                   Label="Biografia"
                                   Variant="Variant.Outlined"
                                   Lines="4"
@@ -61,7 +61,7 @@
             <MudCardActions>
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
-                           OnClick="SaveProfile"
+                           OnClick="SaveAsync"
                            Disabled="isSaving">
                     @(isSaving ? "Salvataggio..." : "Salva Modifiche")
                 </MudButton>
@@ -73,108 +73,3 @@
         <MudAlert Severity="Severity.Error">Impossibile caricare il profilo.</MudAlert>
     }
 </MudContainer>
-
-@code {
-    private ProfileDto? profile;
-    private bool isLoading = true;
-    private bool isSaving;
-    private bool isUploadingAvatar;
-    private const long MaxFileSize = 5 * 1024 * 1024;
-
-    protected override async Task OnInitializedAsync()
-    {
-        isLoading = true;
-        try
-        {
-            profile = await ProfileClient.GetMyProfileAsync();
-            if (profile == null)
-            {
-                Snackbar.Add("Errore nel caricamento del profilo", Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private async Task OnAvatarSelected(IBrowserFile file)
-    {
-        if (file.Size > MaxFileSize)
-        {
-            Snackbar.Add("Il file è troppo grande. Dimensione massima: 5MB", Severity.Warning);
-            return;
-        }
-
-        if (!file.ContentType.StartsWith("image/"))
-        {
-            Snackbar.Add("Seleziona un'immagine valida", Severity.Warning);
-            return;
-        }
-
-        isUploadingAvatar = true;
-        try
-        {
-            var result = await ProfileClient.UploadProfileImageAsync(file, MaxFileSize);
-            if (profile is not null && result is not null)
-            {
-                profile.AvatarUrl = result.Url;
-                Snackbar.Add("Avatar caricato con successo!", Severity.Success);
-            }
-            else
-            {
-                Snackbar.Add("Errore nel caricamento dell'avatar", Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            isUploadingAvatar = false;
-        }
-    }
-
-    private async Task SaveProfile()
-    {
-        if (profile is null || string.IsNullOrWhiteSpace(profile.Username))
-        {
-            Snackbar.Add("Il nome utente è obbligatorio", Severity.Warning);
-            return;
-        }
-
-        isSaving = true;
-        try
-        {
-            var request = new UpdateProfileRequest
-            {
-                Username = profile.Username,
-                Bio = profile.Bio
-            };
-            var success = await ProfileClient.SaveProfileAsync(request);
-            if (success)
-            {
-                Snackbar.Add("Profilo salvato con successo!", Severity.Success);
-            }
-            else
-            {
-                Snackbar.Add("Errore nel salvataggio del profilo", Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Errore: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            isSaving = false;
-        }
-    }
-
-}

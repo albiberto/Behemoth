@@ -6,56 +6,41 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Behemoth.Contracts;
-using FluentValidation;
-// Assicurati che il tuo UpdateProfileRequest sia in Behemoth.Contracts
-using UpdateProfileRequest = Behemoth.Contracts.UpdateProfileRequest;
+using Microsoft.EntityFrameworkCore;
 
 namespace Behemoth.Functions.Functions;
 
 public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> logger)
 {
-    /// <summary>
-    /// FUNZIONE 1: Ottiene il profilo dell'utente corrente.
-    /// Se il profilo non esiste, ne crea uno nuovo e vuoto.
-    /// </summary>
     [Function("GetMyProfile")]
-    public async Task<HttpResponseData> GetMyProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")]
-        HttpRequestData req)
+    public async Task<HttpResponseData> GetMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")] HttpRequestData req)
     {
-        logger.LogInformation("Request to get 'me' profile.");
-
         try
         {
-            var userId = req.GetUserId();
-
-            var existingProfile = await context.Profiles.FindAsync(userId);
-            Profile profileToReturn;
-
-            if (existingProfile is null)
+            var id = req.GetUserId();
+            var existing = await context.Profiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => string.Equals(p.Id, id, StringComparison.Ordinal));
+            
+            Profile profile;
+            if (existing is null)
             {
-                logger.LogInformation("Profile not found for {UserId}. Creating a new empty profile.", userId);
+                logger.LogInformation("Profile not found for {UserId}. Creating a new empty profile.", id);
 
-                profileToReturn = new Profile(userId);
+                profile = new Profile(id);
 
-                await context.Profiles.AddAsync(profileToReturn);
+                await context.Profiles.AddAsync(profile);
                 await context.SaveChangesAsync();
             }
             else
             {
-                logger.LogInformation("Profile found for {UserId}.", userId);
-                profileToReturn = existingProfile;
+                logger.LogInformation("Profile found for {UserId}.", id);
+                profile = existing;
             }
 
             var response = req.CreateResponse(HttpStatusCode.OK);
-            var profileDto = new ProfileDto
-            {
-                Id = profileToReturn.Id,
-                Username = profileToReturn.Username,
-                Bio = profileToReturn.Bio,
-                AvatarUrl = profileToReturn.AvatarUrl
-            };
-            await response.WriteAsJsonAsync(profileDto);
+            await response.WriteAsJsonAsync(new Contract.Profile.Full(profile.Username, profile.Bio, profile.AvatarUrl));
+            
             return response;
         }
         catch (Exception ex)
@@ -65,59 +50,35 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
         }
     }
 
-    /// <summary>
-    /// FUNZIONE 2: Aggiorna il profilo dell'utente corrente (Username e Bio).
-    /// Questa funzione è solo un UPDATE (PUT).
-    /// </summary>
     [Function("UpdateMyProfile")]
-    public async Task<HttpResponseData> UpdateMyProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")]
-        HttpRequestData req)
+    public async Task<HttpResponseData> UpdateMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")] HttpRequestData req)
     {
-        logger.LogInformation("Request to update 'me' profile.");
-
         try
         {
-            var userId = req.GetUserId();
+            var id = req.GetUserId();
 
-            var request = await req.ReadFromJsonAsync<UpdateProfileRequest>();
+            var request = await req.ReadFromJsonAsync<Contract.Profile.Anagraphy>();
             if (request is null)
             {
                 logger.LogWarning("Update profile request body was null or invalid.");
                 return req.CreateResponse(HttpStatusCode.BadRequest);
             }
 
-            var existingProfile = await context.Profiles.FindAsync(userId);
+            var existing = await context.Profiles.FindAsync(id);
 
-            if (existingProfile is null)
+            if (existing is null)
             {
-                // Non dovrebbe succedere se il GET viene chiamato prima, 
-                // ma è una buona protezione.
-                logger.LogWarning("User {UserId} tried to update a profile that does not exist.", userId);
+                logger.LogWarning("User {UserId} tried to update a profile that does not exist.", id);
                 return req.CreateResponse(HttpStatusCode.NotFound);
             }
 
-            logger.LogInformation("Updating profile for user {UserId}", userId);
+            logger.LogInformation("Updating profile for user {UserId}", id);
 
-            // Applica l'aggiornamento
-            var updatedProfile = existingProfile with
-            {
-                Username = request.Username,
-                Bio = request.Bio
-            };
-            context.Profiles.Update(updatedProfile);
-
+            existing.Update(request.Username, request.Bio);
             await context.SaveChangesAsync();
 
             var response = req.CreateResponse(HttpStatusCode.OK);
-            var profileDto = new ProfileDto
-            {
-                Id = updatedProfile.Id,
-                Username = updatedProfile.Username,
-                Bio = updatedProfile.Bio,
-                AvatarUrl = updatedProfile.AvatarUrl
-            };
-            await response.WriteAsJsonAsync(profileDto);
+            await response.WriteAsJsonAsync(new Contract.Profile.Full(request.Username, request.Bio, existing.AvatarUrl));
             return response;
         }
         catch (Exception ex)
@@ -127,7 +88,6 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
         }
     }
 
-    //
     // [Function("UploadProfileImage")]
     // public async Task<HttpResponseData> UploadProfileImage(
     //     [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")]
