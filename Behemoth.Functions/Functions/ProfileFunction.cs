@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using System.Text.Json;
+using Azure.Storage.Blobs;
 using Behemoth.Domain;
 using Behemoth.Infrastructure;
 using Behemoth.Functions.Extensions;
@@ -6,22 +8,48 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Behemoth.Contracts;
+using Behemoth.Functions.Options;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
 
 namespace Behemoth.Functions.Functions;
 
-public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> logger)
+public class ProfileFunction(
+    BehemothContext context, 
+    IDistributedCache cache, 
+    IValidator<Contract.Profile.Anagraphy> validator, 
+    IOptions<CacheOptions> options, 
+    BlobServiceClient blobs,
+    ILogger<ProfileFunction> logger)
 {
     [Function("GetMyProfile")]
     public async Task<HttpResponseData> GetMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles/me")] HttpRequestData req)
     {
+        var id = req.GetUserId();
+        var cacheKey = CacheOptions.ProfileKey(id);
+
         try
         {
-            var id = req.GetUserId();
+            var cachedProfileJson = await cache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cachedProfileJson))
+            {
+                logger.LogInformation("Profile found in Redis cache for {UserId}.", id);
+
+                var cachedProfile = JsonSerializer.Deserialize<Contract.Profile.Full>(cachedProfileJson);
+
+                var responseCached = req.CreateResponse(HttpStatusCode.OK);
+                await responseCached.WriteAsJsonAsync(cachedProfile);
+
+                return responseCached;
+            }
+
             var existing = await context.Profiles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => string.Equals(p.Id, id, StringComparison.Ordinal));
-            
+
             Profile profile;
             if (existing is null)
             {
@@ -38,9 +66,13 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
                 profile = existing;
             }
 
+            var contract = new Contract.Profile.Full(profile.Username, profile.Bio, profile.AvatarUrl);
+
+            await cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(contract), options.Value.ProfileOptions);
+
             var response = req.CreateResponse(HttpStatusCode.OK);
-            await response.WriteAsJsonAsync(new Contract.Profile.Full(profile.Username, profile.Bio, profile.AvatarUrl));
-            
+            await response.WriteAsJsonAsync(contract);
+
             return response;
         }
         catch (Exception ex)
@@ -51,17 +83,34 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
     }
 
     [Function("UpdateMyProfile")]
-    public async Task<HttpResponseData> UpdateMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/me")] HttpRequestData req)
+    public async Task<HttpResponseData> UpdateMyProfile([HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "profiles/me")] HttpRequestData req)
     {
+        var id = req.GetUserId();
+        var cacheKey = CacheOptions.ProfileKey(id);
+
         try
         {
-            var id = req.GetUserId();
-
             var request = await req.ReadFromJsonAsync<Contract.Profile.Anagraphy>();
             if (request is null)
             {
-                logger.LogWarning("Update profile request body was null or invalid.");
+                logger.LogWarning("Update profile request body was null or invalid for user {UserId}.", id);
                 return req.CreateResponse(HttpStatusCode.BadRequest);
+            }
+
+            var validationResult = await validator.ValidateAsync(request);
+
+            if (!validationResult.IsValid)
+            {
+                logger.LogWarning("Validation failed for profile update for user {UserId}.", id);
+
+                var errorMessages = validationResult.Errors
+                    .Select(e => new { Field = e.PropertyName, Error = e.ErrorMessage })
+                    .ToList();
+
+                var responseValidation = req.CreateResponse(HttpStatusCode.BadRequest);
+                await responseValidation.WriteAsJsonAsync(new { Errors = errorMessages });
+
+                return responseValidation;
             }
 
             var existing = await context.Profiles.FindAsync(id);
@@ -77,52 +126,62 @@ public class ProfileFunction(BehemothContext context, ILogger<ProfileFunction> l
             existing.Update(request.Username, request.Bio);
             await context.SaveChangesAsync();
 
+            try
+            {
+                await cache.RemoveAsync(cacheKey);
+                logger.LogDebug("Cache invalidated for profile {UserId}.", id);
+            }
+            catch (Exception cacheEx)
+            {
+                logger.LogError(cacheEx, "WARNING: Failed to invalidate Redis cache for profile {UserId}. Data will be stale until TTL expires.", id);
+            }
+
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new Contract.Profile.Full(request.Username, request.Bio, existing.AvatarUrl));
+
             return response;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error updating profile for user.");
+            logger.LogError(ex, "Error updating profile for user {UserId}.", id);
+            
             return req.CreateResponse(HttpStatusCode.InternalServerError);
         }
     }
 
-    // [Function("UploadProfileImage")]
-    // public async Task<HttpResponseData> UploadProfileImage(
-    //     [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")]
-    //     HttpRequestData req)
-    // {
-    //     logger.LogInformation("C# HTTP trigger function processed a request to upload a profile image.");
-    //
-    //     try
-    //     {
-    //         var userId = req.GetUserId();
-    //
-    //         var file = req.Body;
-    //
-    //         var blobName = $"{userId}-{DateTimeOffset.UtcNow.Ticks}";
-    //         var blobClient = _containerClient.GetBlobClient(blobName);
-    //
-    //         await blobClient.UploadAsync(file, true);
-    //         var newAvatarUrl = blobClient.Uri.ToString();
-    //
-    //         var existingProfile = await context.Profiles.FindAsync(userId);
-    //         if (existingProfile is null) return req.CreateResponse(HttpStatusCode.NotFound);
-    //
-    //         // Poiché Profile è immutabile, creiamo una nuova istanza con l'URL aggiornato
-    //         var updatedProfile = existingProfile with { AvatarUrl = newAvatarUrl };
-    //         context.Profiles.Update(updatedProfile);
-    //         await context.SaveChangesAsync();
-    //
-    //         var response = req.CreateResponse(HttpStatusCode.OK);
-    //         await response.WriteAsJsonAsync(new UploadImageResponse(newAvatarUrl));
-    //         return response;
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         logger.LogError(ex, "Error uploading profile image.");
-    //         return req.CreateResponse(HttpStatusCode.InternalServerError);
-    //     }
-    // }
+    [Function("UploadProfileImage")]
+    public async Task<HttpResponseData> UploadProfileImage([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")] HttpRequestData req)
+    {
+        logger.LogInformation("C# HTTP trigger function processed a request to upload a profile image.");
+    
+        try
+        {
+            var userId = req.GetUserId();
+    
+            var file = req.Body;
+    
+            var blobName = $"{userId}-{DateTimeOffset.UtcNow.Ticks}";
+            var blobClient = blobs.GetBlobClient(blobName);
+    
+            await blobClient.UploadAsync(file, true);
+            var newAvatarUrl = blobClient.Uri.ToString();
+    
+            var existingProfile = await context.Profiles.FindAsync(userId);
+            if (existingProfile is null) return req.CreateResponse(HttpStatusCode.NotFound);
+    
+            // Poiché Profile è immutabile, creiamo una nuova istanza con l'URL aggiornato
+            var updatedProfile = existingProfile with { AvatarUrl = newAvatarUrl };
+            context.Profiles.Update(updatedProfile);
+            await context.SaveChangesAsync();
+    
+            var response = req.CreateResponse(HttpStatusCode.OK);
+            await response.WriteAsJsonAsync(new Contract.Profile.Avatar(newAvatarUrl));
+            return response;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error uploading profile image.");
+            return req.CreateResponse(HttpStatusCode.InternalServerError);
+        }
+    }
 }

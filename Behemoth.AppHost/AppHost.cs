@@ -2,17 +2,17 @@ using Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var blob = AbbBlobStorage("storage");
+var blobs = AbbBlobStorage("storage");
 var cosmos = AddCosmos("cosmos");
-var cache = builder.AddRedis("cache");
+var cache = AddRedis("cache");
 
 var functions = builder.AddProject<Projects.Behemoth_Functions>("functions")
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithReference(cache)
     .WaitFor(cache)
-    .WithReference(blob)
-    .WaitFor(blob);
+    .WithReference(blobs)
+    .WaitFor(blobs);
 
 var web = builder.AddProject<Projects.Behemoth_Web>("web")
     .WithExternalHttpEndpoints()
@@ -34,6 +34,7 @@ IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage(string name)
             azurite.WithDataVolume();
         });
 
+    storage.AddBlobContainer("behemoth-container");
     return storage.AddBlobs("blobs");
 }
 
@@ -48,3 +49,9 @@ IResourceBuilder<AzureCosmosDBResource> AddCosmos(string name)
 
     return resourceBuilder;
 }
+
+IResourceBuilder<RedisResource> AddRedis(string name) =>
+    builder.AddRedis(name)
+        .WithRedisInsight()
+        .WithDataVolume(isReadOnly: false)
+        .WithPersistence(TimeSpan.FromMinutes(1), 100);

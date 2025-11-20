@@ -23,7 +23,7 @@ public class BehemothHttpClient(HttpClient http)
     {
         var request = new Contract.Profile.Anagraphy(username, bio);
 
-        var response = await http.PutAsJsonAsync("api/profiles/me", request);
+        var response = await http.PatchAsJsonAsync("api/profiles/me", request);
         return response.IsSuccessStatusCode;
     }
 
