@@ -151,17 +151,16 @@ public class ProfileFunction(
     }
 
     [Function("UploadProfileImage")]
-    public async Task<HttpResponseData> UploadProfileImage([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")] HttpRequestData req)
+    public async Task<HttpResponseData> UploadProfileImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/avatar")]
+        HttpRequestData req)
     {
         const string ContainerName = "behemoth-container";
-
         var userId = req.GetUserId();
-        logger.LogInformation("Starting image upload for user {UserId}", userId);
 
         try
         {
             var containerClient = blobs.GetBlobContainerClient(ContainerName);
-            await containerClient.CreateIfNotExistsAsync();
 
             var fileName = $"{userId}-{DateTimeOffset.UtcNow.Ticks}.jpg";
             var blobClient = containerClient.GetBlobClient(fileName);
@@ -171,33 +170,42 @@ public class ProfileFunction(
                 HttpHeaders = new BlobHttpHeaders
                 {
                     ContentType = "image/jpeg",
-                    CacheControl = "public, max-age=31536000, immutable" // Cache browser 1 anno
+                    CacheControl = "public, max-age=31536000, immutable"
                 }
             };
 
             await blobClient.UploadAsync(req.Body, uploadOptions);
 
-            var newAvatarUrl = blobClient.Uri.ToString();
-            logger.LogInformation("Image uploaded to {Url}", newAvatarUrl);
+            var publicUrl = GetPublicUrl(blobClient.Uri, ContainerName, fileName);
+
+            logger.LogInformation("Image uploaded. Internal: {Internal} -> Public: {Public}", blobClient.Uri, publicUrl);
 
             var existingProfile = await context.Profiles.FindAsync(userId);
             if (existingProfile is null) return req.CreateResponse(HttpStatusCode.NotFound);
 
-            existingProfile.UpdateAvatar(newAvatarUrl);
+            existingProfile.UpdateAvatar(publicUrl);
             await context.SaveChangesAsync();
 
-            var cacheKey = CacheOptions.ProfileKey(userId);
-            await cache.RemoveAsync(cacheKey);
+            await cache.RemoveAsync(CacheOptions.ProfileKey(userId));
 
             var response = req.CreateResponse(HttpStatusCode.OK);
-            await response.WriteAsJsonAsync(new { AvatarUrl = newAvatarUrl });
+            await response.WriteAsJsonAsync(new Contract.Profile.Avatar(publicUrl));
 
             return response;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error uploading profile image for user {UserId}.", userId);
+            logger.LogError(ex, "Error uploading profile image.");
             return req.CreateResponse(HttpStatusCode.InternalServerError);
         }
+    }
+
+    private string GetPublicUrl(Uri physicalUri, string container, string fileName)
+    {
+        var cdnHost = Environment.GetEnvironmentVariable("StoragePublicHost");
+
+        return string.IsNullOrEmpty(cdnHost)
+            ? physicalUri.ToString()
+            : $"{cdnHost.TrimEnd('/')}/{container}/{fileName}";
     }
 }

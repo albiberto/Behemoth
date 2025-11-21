@@ -12,10 +12,12 @@ builder.Services.AddMsalAuthentication(options =>
 {
     builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
 
+    options.ProviderOptions.Cache.CacheLocation = "localStorage";
+    options.ProviderOptions.LoginMode = "redirect"; // Consigliato per UX mobile/persistenza migliore
+
     var scopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>();
     foreach (var scope in scopes ?? []) options.ProviderOptions.DefaultAccessTokenScopes.Add(scope);
 });
-
 
 builder.Services.AddScoped<BehemothApiAuthorizationMessageHandler>();
 builder.Services

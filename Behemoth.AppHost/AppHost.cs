@@ -2,17 +2,17 @@ using Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var blobs = AbbBlobStorage("storage");
-var cosmos = AddCosmos("cosmos");
-var cache = AddRedis("cache");
+var blobs = AbbBlobStorage();
+var cosmos = AddCosmos();
+var cache = AddCache();
 
 var functions = builder.AddProject<Projects.Behemoth_Functions>("functions")
     .WithReference(cosmos)
-    .WaitFor(cosmos)
+    // .WaitFor(cosmos)
     .WithReference(cache)
-    .WaitFor(cache)
-    .WithReference(blobs)
-    .WaitFor(blobs);
+    // .WaitFor(cache)
+    .WithReference(blobs);
+    // .WaitFor(blobs);
 
 var web = builder.AddProject<Projects.Behemoth_Web>("web")
     .WithExternalHttpEndpoints()
@@ -24,9 +24,9 @@ var web = builder.AddProject<Projects.Behemoth_Web>("web")
 builder.Build().Run();
 return;
 
-IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage(string name)
+IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage()
 {
-    var storage = builder.AddAzureStorage(name);
+    var storage = builder.AddAzureStorage("storage");
     if (!builder.ExecutionContext.IsPublishMode)
         storage.RunAsEmulator(azurite =>
         {
@@ -38,20 +38,37 @@ IResourceBuilder<AzureBlobStorageResource> AbbBlobStorage(string name)
     return storage.AddBlobs("blobs");
 }
 
-IResourceBuilder<AzureCosmosDBResource> AddCosmos(string name)
+IResourceBuilder<AzureCosmosDBResource> AddCosmos()
 {
-    var resourceBuilder = builder.AddAzureCosmosDB(name);
-    if (!builder.ExecutionContext.IsPublishMode) resourceBuilder.RunAsEmulator();
+    var resourceBuilder = builder.AddAzureCosmosDB("cosmos");
+    if (!builder.ExecutionContext.IsPublishMode) resourceBuilder.RunAsEmulator(emulator =>
+    {
+        emulator.WithLifetime(ContainerLifetime.Persistent);
+        emulator.WithDataVolume();
+    });
 
     var database = resourceBuilder.AddCosmosDatabase("behemoth-db");
-    database.AddContainer("Players", "/id");
+    database.AddContainer("Profiles", "/id");
     database.AddContainer("Replays", "/id");
 
     return resourceBuilder;
 }
 
-IResourceBuilder<RedisResource> AddRedis(string name) =>
-    builder.AddRedis(name)
-        .WithRedisInsight()
-        .WithDataVolume(isReadOnly: false)
-        .WithPersistence(TimeSpan.FromMinutes(1), 100);
+IResourceBuilder<AzureRedisCacheResource> AddCache()
+{
+    var resourceBuilder = builder.AddAzureRedis("cache");
+
+    if (!builder.ExecutionContext.IsPublishMode)
+    {
+        resourceBuilder.RunAsContainer(redisContainer =>
+        {
+            redisContainer
+                .WithRedisInsight()
+                .WithLifetime(ContainerLifetime.Persistent)
+                .WithDataVolume(isReadOnly: false)
+                .WithPersistence(TimeSpan.FromMinutes(1), 100);
+        });
+    }
+
+    return resourceBuilder;
+}
