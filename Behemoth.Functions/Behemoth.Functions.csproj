@@ -31,6 +31,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Behemoth.Contracts\Behemoth.Contracts.csproj"/>
         <ProjectReference Include="..\Behemoth.Infrastructure\Behemoth.Infrastructure.csproj"/>
+        <ProjectReference Include="..\Behemoth.ServiceDefaults\Behemoth.ServiceDefaults.csproj" />
     </ItemGroup>
 
 </Project>

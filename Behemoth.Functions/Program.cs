@@ -16,27 +16,7 @@ builder.ConfigureFunctionsWebApplication();
 
 if (builder.Environment.IsDevelopment()) builder.UseMiddleware<LocalAuthSimulatorMiddleware>();
 
-builder.Services
-    .AddApplicationInsightsTelemetryWorkerService()
-    .ConfigureFunctionsApplicationInsights();
-
-builder.Services.Configure<WorkerOptions>(options =>
-{
-    options.Serializer = new JsonObjectSerializer(new JsonSerializerOptions
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    });
-});
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowBlazorClient", policy =>
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod());
-});
+builder.AddServiceDefaults();
 
 builder.Services.AddValidatorsFromAssemblyContaining<UpdateProfileRequestValidator>();
 
@@ -50,11 +30,4 @@ builder.Services.AddOptions<CacheOptions>()
     .ValidateOnStart();
 
 var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<BehemothContext>();
-    await context.Database.EnsureCreatedAsync();
-}
-
 app.Run();
